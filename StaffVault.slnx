@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="StaffVault.Application/StaffVault.Application.csproj" />
+  <Project Path="StaffVault.Domain/StaffVault.Domain.csproj" />
+  <Project Path="StaffVault.Infrastructure/StaffVault.Infrastructure.csproj" />
+  <Project Path="StaffVault.Web/StaffVault.Web.csproj" />
+</Solution>
