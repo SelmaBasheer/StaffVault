@@ -12,10 +12,14 @@
 
         private static readonly string[] PictureExtensions = [".jpg", ".jpeg", ".png"];
 
-        public static readonly IReadOnlySet<string> AllowedPictureExtensions =
-            new HashSet<string>(PictureExtensions, StringComparer.OrdinalIgnoreCase);
+        public static readonly IReadOnlySet<string> AllowedPictureExtensions = new HashSet<string>(
+            PictureExtensions,
+            StringComparer.OrdinalIgnoreCase
+        );
 
-        public static readonly string AllowedPictureExtensionsDisplay =
-            string.Join(", ", PictureExtensions);
+        public static readonly string AllowedPictureExtensionsDisplay = string.Join(
+            ", ",
+            PictureExtensions
+        );
     }
 }
