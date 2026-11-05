@@ -3,7 +3,9 @@
     public sealed class DuplicateEmailException : DomainException
     {
         public string Email { get; }
-        private static string BuildMessage(string email) => $"An employee with email '{email}' already exists.";
+
+        private static string BuildMessage(string email) =>
+            $"An employee with email '{email}' already exists.";
 
         public DuplicateEmailException(string email)
             : base(BuildMessage(email))
