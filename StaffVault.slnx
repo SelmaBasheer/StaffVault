@@ -1,4 +1,7 @@
 <Solution>
+  <Folder Name="/database/">
+    <File Path="database/StaffVault.sql" />
+  </Folder>
   <Project Path="StaffVault.Application/StaffVault.Application.csproj" />
   <Project Path="StaffVault.Domain/StaffVault.Domain.csproj" />
   <Project Path="StaffVault.Infrastructure/StaffVault.Infrastructure.csproj" />
