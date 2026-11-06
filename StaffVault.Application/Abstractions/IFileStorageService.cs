@@ -2,7 +2,7 @@
 {
     public interface IFileStorageService
     {
-        Task<string?> UploadFileAsync(
+        Task<string?> SaveAsync(
             Stream content,
             string fileName,
             CancellationToken cancellationToken = default
