@@ -7,28 +7,22 @@ var builder = WebApplication.CreateBuilder(args);
 // Logging: Serilog, configured in appsettings.json
 builder.Services.AddSerilog(config => config.ReadFrom.Configuration(builder.Configuration));
 
-// Add services to the container.
+// MVC +  layers
 builder.Services.AddControllersWithViews();
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration, builder.Environment.WebRootPath);
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/error");
-    // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
     app.UseHsts();
 }
 
 app.UseSerilogRequestLogging();
 app.UseHttpsRedirection();
-app.UseRouting();
-
-app.UseAuthorization();
-
-app.MapStaticAssets();
+app.UseStaticFiles(); // serves wwwroot, including uploaded pictures
 
 app.MapControllerRoute(name: "default", pattern: "{controller=Employee}/{action=Index}/{id?}");
 

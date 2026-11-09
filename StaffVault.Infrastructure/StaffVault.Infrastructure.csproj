@@ -19,9 +19,4 @@
   <ItemGroup>
     <ProjectReference Include="..\StaffVault.Application\StaffVault.Application.csproj" />
   </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Storage\" />
-    <Folder Include="Persistence\" />
-  </ItemGroup>
 </Project>

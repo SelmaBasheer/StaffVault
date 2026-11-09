@@ -9,6 +9,7 @@ public sealed class EmployeeViewModel
     public int Id { get; set; }
 
     [Required(ErrorMessage = "Name is required.")]
+    [Display(Name = "Employee name")]
     public string Name { get; set; } = string.Empty;
 
     [Required(ErrorMessage = "Date of Birth is required.")]
@@ -20,10 +21,11 @@ public sealed class EmployeeViewModel
     [EmailAddress(ErrorMessage = "Please enter a valid email address.")]
     public string Email { get; set; } = string.Empty;
 
-    [Display(Name = "Upload Picture")]
+    [Display(Name = "Upload Image")]
     public IFormFile? Picture { get; set; }
 
     public string? ExistingPicturePath { get; set; }
+    public bool IsEditMode => Id > 0;
 
     // ----- Grid -----
     public IReadOnlyList<EmployeeDto> Employees { get; set; } = [];

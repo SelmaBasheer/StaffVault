@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
+using StaffVault.Application.Abstractions;
 using StaffVault.Application.Employees;
 
 namespace StaffVault.Application
