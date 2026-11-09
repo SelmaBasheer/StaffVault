@@ -10,6 +10,7 @@ namespace StaffVault.Infrastructure.Persistence;
 internal sealed class EmployeeRepository(ISqlConnectionFactory connectionFactory)
     : IEmployeeRepository
 {
+    // Read Employees
     public async Task<IReadOnlyList<Employee>> GetAllAsync(
         CancellationToken cancellationToken = default
     )
@@ -29,6 +30,8 @@ internal sealed class EmployeeRepository(ISqlConnectionFactory connectionFactory
         return employees;
     }
 
+    // Read Employee by Id
+
     public async Task<Employee?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
     {
         await using var connection = connectionFactory.CreateConnection();
@@ -46,7 +49,8 @@ internal sealed class EmployeeRepository(ISqlConnectionFactory connectionFactory
         return null;
     }
 
-    public async Task<int> AddAsync(
+    // Create Employee -> returns the new Id
+    public async Task<int> CreateAsync(
         Employee employee,
         CancellationToken cancellationToken = default
     )
@@ -72,6 +76,7 @@ internal sealed class EmployeeRepository(ISqlConnectionFactory connectionFactory
         return (int)idParameter.Value;
     }
 
+    // Update Employee -> false when the Id does not exist
     public async Task<bool> UpdateAsync(
         Employee employee,
         CancellationToken cancellationToken = default
@@ -95,6 +100,7 @@ internal sealed class EmployeeRepository(ISqlConnectionFactory connectionFactory
         }
     }
 
+    // Delete Employee -> false when the Id does not exist
     public async Task<bool> DeleteAsync(int id, CancellationToken cancellationToken = default)
     {
         await using var connection = connectionFactory.CreateConnection();
@@ -107,6 +113,7 @@ internal sealed class EmployeeRepository(ISqlConnectionFactory connectionFactory
         return Convert.ToInt32(rowsAffected) > 0;
     }
 
+    //Helpers
     private static SqlCommand CreateCommand(SqlConnection connection, string procedureName)
     {
         return new SqlCommand(procedureName, connection)
@@ -118,9 +125,9 @@ internal sealed class EmployeeRepository(ISqlConnectionFactory connectionFactory
     private static void AddEmployeeParameters(SqlCommand command, Employee employee)
     {
         command.Parameters.Add("@Name", SqlDbType.NVarChar, 100).Value = employee.Name;
-        command.Parameters.Add("@DateOfBirth", SqlDbType.Date).Value = employee.DateOfBirth.Date;
+        command.Parameters.Add("@DateOfBirth", SqlDbType.Date).Value = employee.DateOfBirth;
         command.Parameters.Add("@Email", SqlDbType.NVarChar, 254).Value = employee.Email;
-        command.Parameters.Add("@Picture", SqlDbType.NVarChar, 260).Value =
+        command.Parameters.Add("@PicturePath", SqlDbType.NVarChar, 260).Value =
             (object?)employee.PicturePath ?? DBNull.Value;
     }
 
@@ -133,10 +140,11 @@ internal sealed class EmployeeRepository(ISqlConnectionFactory connectionFactory
         {
             Id = (int)reader["ID"],
             Name = (string)reader["Name"],
-            DateOfBirth = (DateTime)reader["DateOfBirth"],
+            DateOfBirth = DateOnly.FromDateTime((DateTime)reader["DateOfBirth"]),
             Email = (string)reader["Email"],
-            PicturePath = reader["Picture"] as string,
-            UpdatedOnUtc = DateTime.SpecifyKind((DateTime)reader["UpdatedOn"], DateTimeKind.Utc),
+            PicturePath = reader["PicturePath"] as string,
+            CreatedOnUtc = DateTime.SpecifyKind((DateTime)reader["CreatedOnUtc"], DateTimeKind.Utc),
+            UpdatedOnUtc = DateTime.SpecifyKind((DateTime)reader["UpdatedOnUtc"], DateTimeKind.Utc),
         };
     }
 }

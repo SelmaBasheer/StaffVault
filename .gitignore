@@ -361,3 +361,9 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# Serilog log files
+logs/
+
+# Uploaded employee pictures (runtime data)
+StaffVault.Web/wwwroot/uploads/

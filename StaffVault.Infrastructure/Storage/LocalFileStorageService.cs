@@ -2,7 +2,7 @@
 
 namespace StaffVault.Infrastructure.Storage;
 
-/// <summary>Saves employee pictures to wwwroot/uploads.</summary>
+/// Saves employee pictures to wwwroot/uploads.
 internal sealed class LocalFileStorageService(string uploadsFolderPath) : IFileStorageService
 {
     private const string UploadsUrl = "/uploads";
@@ -23,7 +23,7 @@ internal sealed class LocalFileStorageService(string uploadsFolderPath) : IFileS
         await using var fileStream = File.Create(fullPath);
         await content.CopyToAsync(fileStream, cancellationToken);
 
-        return $"{UploadsUrl}/{fileName}";
+        return $"/uploads/{fileName}";
     }
 
     public void DeleteFile(string? storedPath)

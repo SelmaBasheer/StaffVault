@@ -13,13 +13,14 @@ internal sealed class EmployeeService(
     ILogger<EmployeeService> logger
 ) : IEmployeeService
 {
-    private static readonly Error NotFoundError = new(string.Empty, "Employee not found.");
+    private static readonly Error NotFound = new(string.Empty, "Employee not found.");
 
-    private static readonly Error DuplicateEmailError = new(
-        nameof(SaveEmployeeRequest.Email),
+    private static readonly Error DuplicateEmail = new(
+        nameof(CreateEmployeeRequest.Email),
         "An employee with this email already exists."
     );
 
+    //Read Employees
     public async Task<IReadOnlyList<EmployeeDto>> GetAllAsync(
         CancellationToken cancellationToken = default
     )
@@ -28,6 +29,7 @@ internal sealed class EmployeeService(
         return employees.Select(ToDto).ToList();
     }
 
+    // Read Employee by Id
     public async Task<EmployeeDto?> GetByIdAsync(
         int id,
         CancellationToken cancellationToken = default
@@ -37,8 +39,9 @@ internal sealed class EmployeeService(
         return employee is null ? null : ToDto(employee);
     }
 
+    //Create Employee
     public async Task<Result> CreateAsync(
-        SaveEmployeeRequest request,
+        CreateEmployeeRequest request,
         CancellationToken cancellationToken = default
     )
     {
@@ -49,11 +52,17 @@ internal sealed class EmployeeService(
         }
 
         var picturePath = await SavePictureAsync(request.Picture, cancellationToken);
-        var employee = BuildEmployee(id: 0, request, picturePath);
+        var employee = BuildEmployee(
+            id: 0,
+            request.Name,
+            request.DateOfBirth,
+            request.Email,
+            picturePath
+        );
 
         try
         {
-            var newId = await repository.AddAsync(employee, cancellationToken);
+            var newId = await repository.CreateAsync(employee, cancellationToken);
             logger.LogInformation("Employee {EmployeeId} created", newId);
             return Result.Success();
         }
@@ -61,49 +70,57 @@ internal sealed class EmployeeService(
         {
             fileStorage.DeleteFile(picturePath);
             logger.LogWarning("Create rejected: duplicate email");
-            return Result.Failure(DuplicateEmailError);
+            return Result.Failure(DuplicateEmail);
         }
         catch
         {
             fileStorage.DeleteFile(picturePath);
-            throw;
+            throw; // unexpected error: clean up, then let it reach the error page/log
         }
     }
 
+    // Update Employee
     public async Task<Result> UpdateAsync(
-        int id,
-        SaveEmployeeRequest request,
+        UpdateEmployeeRequest request,
         CancellationToken cancellationToken = default
     )
     {
-        var existing = await repository.GetByIdAsync(id, cancellationToken);
-        if (existing is null)
-        {
-            return Result.Failure(NotFoundError);
-        }
-
         var errors = validator.Validate(request);
         if (errors.Count > 0)
         {
             return Result.Failure(errors);
         }
-
+        var existing = await repository.GetByIdAsync(request.Id, cancellationToken);
+        if (existing is null)
+        {
+            return Result.Failure(NotFound);
+        }
         var newPicturePath = await SavePictureAsync(request.Picture, cancellationToken);
-        var updated = BuildEmployee(id, request, newPicturePath ?? existing.PicturePath);
+        var picturePath = newPicturePath ?? existing.PicturePath; // no new picture -> keep the old one
+        var employee = BuildEmployee(
+            request.Id,
+            request.Name,
+            request.DateOfBirth,
+            request.Email,
+            picturePath
+        );
 
         try
         {
-            if (!await repository.UpdateAsync(updated, cancellationToken))
+            if (!await repository.UpdateAsync(employee, cancellationToken))
             {
                 fileStorage.DeleteFile(newPicturePath);
-                return Result.Failure(NotFoundError);
+                return Result.Failure(NotFound);
             }
         }
         catch (DuplicateEmailException)
         {
             fileStorage.DeleteFile(newPicturePath);
-            logger.LogWarning("Update of employee {EmployeeId} rejected: duplicate email", id);
-            return Result.Failure(DuplicateEmailError);
+            logger.LogWarning(
+                "Update of employee {EmployeeId} rejected: duplicate email",
+                request.Id
+            );
+            return Result.Failure(DuplicateEmail);
         }
         catch
         {
@@ -111,24 +128,27 @@ internal sealed class EmployeeService(
             throw;
         }
 
+        // Saved successfully: if the picture was replaced, remove the old file.
         if (newPicturePath is not null)
         {
             fileStorage.DeleteFile(existing.PicturePath);
         }
 
-        logger.LogInformation("Employee {EmployeeId} updated", id);
+        logger.LogInformation("Employee {EmployeeId} updated", request.Id);
         return Result.Success();
     }
 
+    // Delete Employee
     public async Task<Result> DeleteAsync(int id, CancellationToken cancellationToken = default)
     {
         var existing = await repository.GetByIdAsync(id, cancellationToken);
         if (existing is null || !await repository.DeleteAsync(id, cancellationToken))
         {
-            return Result.Failure(NotFoundError);
+            return Result.Failure(NotFound);
         }
 
         fileStorage.DeleteFile(existing.PicturePath);
+
         logger.LogInformation("Employee {EmployeeId} deleted", id);
         return Result.Success();
     }
@@ -143,15 +163,17 @@ internal sealed class EmployeeService(
 
     private static Employee BuildEmployee(
         int id,
-        SaveEmployeeRequest request,
+        string name,
+        DateOnly dateOfBirth,
+        string email,
         string? picturePath
     ) =>
         new()
         {
             Id = id,
-            Name = request.Name.Trim(),
-            DateOfBirth = request.DateOfBirth.Date,
-            Email = request.Email.Trim().ToLowerInvariant(),
+            Name = name.Trim(),
+            DateOfBirth = dateOfBirth,
+            Email = email.Trim().ToLowerInvariant(),
             PicturePath = picturePath,
         };
 
@@ -162,6 +184,7 @@ internal sealed class EmployeeService(
             employee.DateOfBirth,
             employee.Email,
             employee.PicturePath,
+            employee.CreatedOnUtc,
             employee.UpdatedOnUtc
         );
 }
