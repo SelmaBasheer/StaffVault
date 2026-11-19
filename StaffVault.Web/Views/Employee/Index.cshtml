@@ -151,8 +151,8 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <form id="deleteForm" method="post" data-base-url="@Url.Action("Delete", "Employee")">
-                    @Html.AntiForgeryToken()
+                <form id="deleteForm" asp-action="Delete" method="post">
+                    <input type="hidden" name="id" id="deleteEmployeeId" />
                     <button type="submit" class="btn btn-danger">Delete</button>
                 </form>
             </div>

@@ -3,20 +3,23 @@ using Microsoft.Data.SqlClient;
 using StaffVault.Application.Abstractions;
 using StaffVault.Domain.Entities;
 using StaffVault.Domain.Exceptions;
+using StaffVault.Infrastructure.Persistence.Helpers;
+using StaffVault.Infrastructure.Persistence.Mappers;
 
 namespace StaffVault.Infrastructure.Persistence;
 
-// Calls the Employee stored procedures using ADO.NET
 internal sealed class EmployeeRepository(ISqlConnectionFactory connectionFactory)
     : IEmployeeRepository
 {
-    // Read Employees
     public async Task<IReadOnlyList<Employee>> GetAllAsync(
         CancellationToken cancellationToken = default
     )
     {
         await using var connection = connectionFactory.CreateConnection();
-        await using var command = CreateCommand(connection, "dbo.usp_Employee_GetAll");
+        await using var command = SqlCommandHelper.CreateStoredProcedureCommand(
+            connection,
+            StoredProcedures.Employee.GetAll
+        );
 
         await connection.OpenAsync(cancellationToken);
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
@@ -24,40 +27,38 @@ internal sealed class EmployeeRepository(ISqlConnectionFactory connectionFactory
         var employees = new List<Employee>();
         while (await reader.ReadAsync(cancellationToken))
         {
-            employees.Add(Map(reader));
+            employees.Add(reader.ToEmployee());
         }
 
         return employees;
     }
 
-    // Read Employee by Id
-
     public async Task<Employee?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
     {
         await using var connection = connectionFactory.CreateConnection();
-        await using var command = CreateCommand(connection, "dbo.usp_Employee_GetById");
+        await using var command = SqlCommandHelper.CreateStoredProcedureCommand(
+            connection,
+            StoredProcedures.Employee.GetById
+        );
         command.Parameters.Add("@Id", SqlDbType.Int).Value = id;
 
         await connection.OpenAsync(cancellationToken);
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
 
-        if (await reader.ReadAsync(cancellationToken))
-        {
-            return Map(reader);
-        }
-
-        return null;
+        return await reader.ReadAsync(cancellationToken) ? reader.ToEmployee() : null;
     }
 
-    // Create Employee -> returns the new Id
     public async Task<int> CreateAsync(
         Employee employee,
         CancellationToken cancellationToken = default
     )
     {
         await using var connection = connectionFactory.CreateConnection();
-        await using var command = CreateCommand(connection, "dbo.usp_Employee_Insert");
-        AddEmployeeParameters(command, employee);
+        await using var command = SqlCommandHelper.CreateStoredProcedureCommand(
+            connection,
+            StoredProcedures.Employee.Insert
+        );
+        command.AddEmployeeParameters(employee);
 
         var idParameter = command.Parameters.Add("@Id", SqlDbType.Int);
         idParameter.Direction = ParameterDirection.Output;
@@ -68,7 +69,7 @@ internal sealed class EmployeeRepository(ISqlConnectionFactory connectionFactory
         {
             await command.ExecuteNonQueryAsync(cancellationToken);
         }
-        catch (SqlException ex) when (IsDuplicateKey(ex))
+        catch (SqlException ex) when (SqlErrorHelper.IsDuplicateKey(ex))
         {
             throw new DuplicateEmailException(employee.Email, ex);
         }
@@ -76,16 +77,18 @@ internal sealed class EmployeeRepository(ISqlConnectionFactory connectionFactory
         return (int)idParameter.Value;
     }
 
-    // Update Employee -> false when the Id does not exist
     public async Task<bool> UpdateAsync(
         Employee employee,
         CancellationToken cancellationToken = default
     )
     {
         await using var connection = connectionFactory.CreateConnection();
-        await using var command = CreateCommand(connection, "dbo.usp_Employee_Update");
+        await using var command = SqlCommandHelper.CreateStoredProcedureCommand(
+            connection,
+            StoredProcedures.Employee.Update
+        );
         command.Parameters.Add("@Id", SqlDbType.Int).Value = employee.Id;
-        AddEmployeeParameters(command, employee);
+        command.AddEmployeeParameters(employee);
 
         await connection.OpenAsync(cancellationToken);
 
@@ -94,57 +97,24 @@ internal sealed class EmployeeRepository(ISqlConnectionFactory connectionFactory
             var rowsAffected = await command.ExecuteScalarAsync(cancellationToken);
             return Convert.ToInt32(rowsAffected) > 0;
         }
-        catch (SqlException ex) when (IsDuplicateKey(ex))
+        catch (SqlException ex) when (SqlErrorHelper.IsDuplicateKey(ex))
         {
             throw new DuplicateEmailException(employee.Email, ex);
         }
     }
 
-    // Delete Employee -> false when the Id does not exist
     public async Task<bool> DeleteAsync(int id, CancellationToken cancellationToken = default)
     {
         await using var connection = connectionFactory.CreateConnection();
-        await using var command = CreateCommand(connection, "dbo.usp_Employee_Delete");
+        await using var command = SqlCommandHelper.CreateStoredProcedureCommand(
+            connection,
+            StoredProcedures.Employee.Delete
+        );
         command.Parameters.Add("@Id", SqlDbType.Int).Value = id;
 
         await connection.OpenAsync(cancellationToken);
         var rowsAffected = await command.ExecuteScalarAsync(cancellationToken);
 
         return Convert.ToInt32(rowsAffected) > 0;
-    }
-
-    //Helpers
-    private static SqlCommand CreateCommand(SqlConnection connection, string procedureName)
-    {
-        return new SqlCommand(procedureName, connection)
-        {
-            CommandType = CommandType.StoredProcedure,
-        };
-    }
-
-    private static void AddEmployeeParameters(SqlCommand command, Employee employee)
-    {
-        command.Parameters.Add("@Name", SqlDbType.NVarChar, 100).Value = employee.Name;
-        command.Parameters.Add("@DateOfBirth", SqlDbType.Date).Value = employee.DateOfBirth;
-        command.Parameters.Add("@Email", SqlDbType.NVarChar, 254).Value = employee.Email;
-        command.Parameters.Add("@PicturePath", SqlDbType.NVarChar, 260).Value =
-            (object?)employee.PicturePath ?? DBNull.Value;
-    }
-
-    // 2627 = primary key violation, 2601 = unique index violation -> duplicate Email
-    private static bool IsDuplicateKey(SqlException ex) => ex.Number == 2627 || ex.Number == 2601;
-
-    private static Employee Map(SqlDataReader reader)
-    {
-        return new Employee
-        {
-            Id = (int)reader["ID"],
-            Name = (string)reader["Name"],
-            DateOfBirth = DateOnly.FromDateTime((DateTime)reader["DateOfBirth"]),
-            Email = (string)reader["Email"],
-            PicturePath = reader["PicturePath"] as string,
-            CreatedOnUtc = DateTime.SpecifyKind((DateTime)reader["CreatedOnUtc"], DateTimeKind.Utc),
-            UpdatedOnUtc = DateTime.SpecifyKind((DateTime)reader["UpdatedOnUtc"], DateTimeKind.Utc),
-        };
     }
 }
